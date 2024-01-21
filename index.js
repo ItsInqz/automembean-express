@@ -2,7 +2,7 @@ const express = require("express");
 const schedule = require("node-schedule");
 const { PrismaClient } = require("@prisma/client");
 const cors = require("cors");
-const { createCronString, loadSchedules } = require("./utils/cron");
+const { createCronString, loadSchedules, loadSingleSchedule } = require("./utils/cron");
 const PORT = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 const app = express();
@@ -73,7 +73,14 @@ app.post("/create-schedule", async (req, res) => {
             }
         });
 
-        res.status(201).json(newSchedule);
+        // Load this new schedule into node-schedule
+        const job = loadSingleSchedule(newSchedule);
+
+        res.status(201).json({
+            message: "Schedule created and loaded successfully",
+            schedule: newSchedule,
+            jobId: job.name
+        });
     } catch (error) {
         console.error("Failed to create schedule:", error);
         res.status(500).send("Error creating schedule");
