@@ -22,6 +22,8 @@ function createCronString(days, time) {
 	return `${minute} ${hour} * * ${cronDays}`;
 }
 
+const jobMap = {};
+
 async function loadSchedules() {
 	try {
 		const schedules = await prisma.schedule.findMany({
@@ -39,7 +41,7 @@ async function loadSchedules() {
 				return;
 			}
 
-			schedule.scheduleJob(cronTime, () => {
+			const job = schedule.scheduleJob(cronTime, () => {
 				console.log(
 					`Running scheduled job: ${
 						sch.description || "No description"
@@ -47,6 +49,7 @@ async function loadSchedules() {
 				);
 				// Define the task to be performed for each schedule
 			});
+            jobMap[sch.id] = job;
 		});
 
 		console.log(`Loaded ${schedules.length} schedules.`);
@@ -56,25 +59,46 @@ async function loadSchedules() {
 }
 
 function loadSingleSchedule(scheduleDetails) {
-  let cronTime;
-  if (scheduleDetails.repeat === "daily") {
-      cronTime = createCronString(null, scheduleDetails.time);
-  } else if (scheduleDetails.repeat === "weekly") {
-      cronTime = createCronString(scheduleDetails.days, scheduleDetails.time);
-  } else {
-      throw new Error("Invalid repeat value");
-  }
+	let cronTime;
+	if (scheduleDetails.repeat === "daily") {
+		cronTime = createCronString(null, scheduleDetails.time);
+	} else if (scheduleDetails.repeat === "weekly") {
+		cronTime = createCronString(scheduleDetails.days, scheduleDetails.time);
+	} else {
+		throw new Error("Invalid repeat value");
+	}
 
-  const job = schedule.scheduleJob(cronTime, () => {
-      console.log(`Running job: ${scheduleDetails.description || "No description"}`);
-      // Define the task to be performed
-  });
+	const job = schedule.scheduleJob(cronTime, () => {
+		console.log(
+			`Running job: ${scheduleDetails.description || "No description"}`
+		);
+		// Define the task to be performed
+	});
+	jobMap[scheduleDetails.id] = job;
+	return job;
+}
 
-  return job;
+async function modifySchedule(newDetails) {
+    // Cancel the current job
+    if (jobMap[newDetails.id]) {
+        cancelSchedule(newDetails.id)
+    }
+
+    // Load the updated schedule as a new job
+    const updatedJob = loadSingleSchedule(newDetails);
+}
+
+
+function cancelSchedule(scheduleId) {
+    if (jobMap[scheduleId]) {
+        jobMap[scheduleId].cancel();
+        delete jobMap[scheduleId]; // Remove the mapping
+    }
 }
 
 module.exports = {
 	createCronString,
 	loadSchedules,
-  loadSingleSchedule
+	loadSingleSchedule,
+    cancelSchedule
 };

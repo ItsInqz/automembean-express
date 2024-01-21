@@ -2,7 +2,11 @@ const express = require("express");
 const schedule = require("node-schedule");
 const { PrismaClient } = require("@prisma/client");
 const cors = require("cors");
-const { createCronString, loadSchedules, loadSingleSchedule } = require("./utils/cron");
+const {
+	loadSchedules,
+	loadSingleSchedule,
+    cancelSchedule,
+} = require("./utils/cron");
 const PORT = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 const app = express();
@@ -10,84 +14,94 @@ const app = express();
 app.use(cors()); // Enable CORS for all routes and origins
 app.use(express.json());
 
-app.post("/add-schedule/:id", async (req, res) => {
-	const { id } = req.params;
+app.post("/create-schedule", async (req, res) => {
+	const { userId, name, description, repeat, days, time, isActive } =
+		req.body;
 
 	try {
-		const scheduleDetails = await prisma.schedule.findUnique({
-			where: { id: id },
+		// Validate input data
+		// ...
+
+		// Create a new schedule in the database
+		const newSchedule = await prisma.schedule.create({
+			data: {
+				userId,
+				name,
+				description,
+				repeat,
+				days,
+				time,
+				isActive,
+			},
 		});
 
-		if (!scheduleDetails || !scheduleDetails.isActive) {
-			return res.status(404).send("Active schedule not found");
-		}
+		// Load this new schedule into node-schedule
+		const job = loadSingleSchedule(newSchedule);
 
-		let cronTime;
-		if (scheduleDetails.repeat === "daily") {
-			cronTime = createCronString(null, scheduleDetails.time);
-		} else if (scheduleDetails.repeat === "weekly") {
-			cronTime = createCronString(
-				scheduleDetails.days,
-				scheduleDetails.time
-			);
-		} else {
-			return res.status(400).send("Invalid repeat value");
-		}
-
-		const job = schedule.scheduleJob(cronTime, () => {
-			console.log(
-				`Running job: ${
-					scheduleDetails.description || "No description"
-				}`
-			);
-			// Define the task to be performed
-		});
-
-		res.status(200).json({
-			message: "Schedule added successfully",
+		res.status(201).json({
+			message: "Schedule created and loaded successfully",
+			schedule: newSchedule,
 			jobId: job.name,
 		});
 	} catch (error) {
-		console.error("Failed to add schedule:", error);
-		res.status(500).send("Error adding schedule");
+		console.error("Failed to create schedule:", error);
+		res.status(500).send("Error creating schedule");
 	}
 });
 
-app.post("/create-schedule", async (req, res) => {
-    const { userId, name, description, repeat, days, time, isActive } = req.body;
+app.put("/modify-schedule/:id", async (req, res) => {
+    const scheduleId = req.params.id;
+    const { name, description, repeat, days, time, isActive } = req.body;
 
     try {
-        // Validate input data
-        // ...
-
-        // Create a new schedule in the database
-        const newSchedule = await prisma.schedule.create({
-            data: {
-                userId,
-                name,
-                description,
-                repeat,
-                days,
-                time,
-                isActive
-            }
+        // Update the schedule in the database
+        const updatedSchedule = await prisma.schedule.update({
+            where: { id: scheduleId },
+            data: { name, description, repeat, days, time, isActive }
         });
 
-        // Load this new schedule into node-schedule
-        const job = loadSingleSchedule(newSchedule);
+        // Update the schedule job if it's active, or cancel it if not
+        if (isActive) {
+            modifySchedule(updatedSchedule);
+        } else if (jobMap[scheduleId]) {
+            cancelSchedule(scheduleId);
+        }
 
-        res.status(201).json({
-            message: "Schedule created and loaded successfully",
-            schedule: newSchedule,
-            jobId: job.name
+        res.status(200).json({
+            message: "Schedule updated successfully",
+            schedule: updatedSchedule
         });
     } catch (error) {
-        console.error("Failed to create schedule:", error);
-        res.status(500).send("Error creating schedule");
+        console.error("Failed to modify schedule:", error);
+        res.status(500).send("Error modifying schedule");
     }
 });
 
-loadSchedules()
+app.delete("/delete-schedule/:id", async (req, res) => {
+    const scheduleId = req.params.id;
+
+    try {
+        // Cancel the schedule job if it exists
+        if (jobMap[scheduleId]) {
+            cancelSchedule(scheduleId);
+        }
+
+        // Delete the schedule from the database
+        await prisma.schedule.delete({
+            where: { id: scheduleId }
+        });
+
+        res.status(200).json({
+            message: "Schedule deleted successfully"
+        });
+    } catch (error) {
+        console.error("Failed to delete schedule:", error);
+        res.status(500).send("Error deleting schedule");
+    }
+});
+
+
+loadSchedules();
 
 app.listen(PORT, () => {
 	console.log(`Server is running on port ${PORT}`);
