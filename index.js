@@ -86,7 +86,7 @@ app.post("/create-schedule", async (req, res) => {
 		res.status(201).json({
 			message: "Schedule created and loaded successfully",
 			schedule: newSchedule,
-			jobId: job.name,
+			jobId: job,
 		});
 	} catch (error) {
 		console.error("Failed to create schedule:", error);
