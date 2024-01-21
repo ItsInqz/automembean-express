@@ -54,8 +54,22 @@ model User {
   stripePriceId          String?   @map(name: "stripe_price_id")
   stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
 
-  accounts Account[]
-  sessions Session[]
+  accounts  Account[]
+  sessions  Session[]
+  schedules Schedule[]
+}
+
+model Schedule {
+  id          String  @id @default(cuid())
+  userId      String
+  name        String
+  description String? // A description of what the schedule is for
+  repeat      String // 'daily' or 'weekly'
+  days        String? // Comma-separated days for weekly tasks (e.g., 'Monday,Wednesday,Friday')
+  time        String // The time of day the task should run (e.g., '14:00')
+  isActive    Boolean @default(true) // Whether the schedule is active or not
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Authkey {
