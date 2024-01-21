@@ -6,7 +6,9 @@ const {
 	loadSchedules,
 	loadSingleSchedule,
     cancelSchedule,
-} = require("./utils/cron");
+    modifySchedule,
+    jobMap
+} = require("./utils/schedule");
 const PORT = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 const app = express();
@@ -101,8 +103,8 @@ app.delete("/delete-schedule/:id", async (req, res) => {
 });
 
 
-loadSchedules();
-
 app.listen(PORT, () => {
+    loadSchedules();
+
 	console.log(`Server is running on port ${PORT}`);
 });
