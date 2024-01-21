@@ -1,6 +1,7 @@
 const express = require("express");
 const schedule = require("node-schedule");
 const { PrismaClient } = require("@prisma/client");
+const Docker = require('dockerode');
 const cors = require("cors");
 const {
 	loadSchedules,
@@ -15,6 +16,48 @@ const app = express();
 
 app.use(cors()); // Enable CORS for all routes and origins
 app.use(express.json());
+
+const client = new Docker({ socketPath: '/var/run/docker.sock' });
+const IMAGE_NAME = "nateloeffel/membean_bot:latest";
+
+// Start Container Endpoint
+app.post('/start-container', async (req, res) => {
+    try {
+        const authkey = req.body.authkey;
+        console.log(authkey);
+        if (!authkey) {
+            return res.status(400).json({ message: 'authkey is required' });
+        }
+
+        const environmentVars = { "AUTHKEY": authkey, "PYTHONUNBUFFERED": 1 };
+
+        const container = await client.createContainer({
+            Image: IMAGE_NAME,
+            Detach: true,
+            Env: Object.entries(environmentVars).map(([key, value]) => `${key}=${value}`),
+            HostConfig: { AutoRemove: true }
+        });
+        await container.start();
+
+        res.status(200).json({ message: 'Container started', container_id: container.id });
+    } catch (error) {
+        res.status(500).json({ message: 'Error starting container', error: error.message });
+    }
+});
+
+// Stop Container Endpoint
+app.delete('/stop-container/:container_id', async (req, res) => {
+    try {
+        const containerId = req.params.container_id;
+        const container = client.getContainer(containerId);
+        await container.stop();
+        await container.remove();
+
+        res.status(200).json({ message: 'Container stopped and removed' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error stopping container', error: error.message });
+    }
+});
 
 app.post("/create-schedule", async (req, res) => {
 	const { userId, name, description, repeat, days, time, isActive } =
@@ -101,6 +144,8 @@ app.delete("/delete-schedule/:id", async (req, res) => {
         res.status(500).send("Error deleting schedule");
     }
 });
+
+
 
 
 app.listen(PORT, () => {
