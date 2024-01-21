@@ -76,6 +76,7 @@ function cancelSchedule(scheduleId) {
         jobMap[scheduleId].cancel();
         delete jobMap[scheduleId]; // Remove the mapping
     }
+	console.log("job cancelled")
 }
 
 module.exports = {
