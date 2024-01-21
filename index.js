@@ -92,7 +92,7 @@ app.post("/create-schedule", async (req, res) => {
 		});
 
 		// Load this new schedule into node-schedule
-		const job = loadSingleSchedule(newSchedule);
+		const job = loadSingleSchedule(newSchedule, client);
 
 		res.status(201).json({
 			message: "Schedule created and loaded successfully",
@@ -117,7 +117,7 @@ app.put("/modify-schedule/:id", async (req, res) => {
 
 		// Update the schedule job if it's active, or cancel it if not
 		if (isActive) {
-			modifySchedule(updatedSchedule);
+			modifySchedule(updatedSchedule, client);
 		} else if (jobMap[scheduleId]) {
 			cancelSchedule(scheduleId);
 		}
@@ -156,7 +156,7 @@ app.delete("/delete-schedule/:id", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-	loadSchedules();
+	loadSchedules(client);
 
 	console.log(`Server is running on port ${PORT}`);
 });
