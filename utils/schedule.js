@@ -56,7 +56,7 @@ function loadSingleSchedule(scheduleDetails) {
 		// Define the task to be performed
 	});
 	jobMap[scheduleDetails.id] = job;
-	console.log("JOB SCHEDULED - ", jobMap[scheduleDetails.id].name)
+	console.log("JOB SCHEDULED - ", jobMap[scheduleDetails.id])
 	return job;
 }
 
