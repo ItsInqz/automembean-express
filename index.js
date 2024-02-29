@@ -29,7 +29,7 @@ app.post("/start-container", async (req, res) => {
 			return res.status(400).json({ message: "authkey is required" });
 		}
 
-		const environmentVars = { AUTHKEY: authkey, PYTHONUNBUFFERED: 1, HTTP_PROXY: "http://localhost:8080", HTTPS_PROXY: "https://localhost:8080" };
+		const environmentVars = { AUTHKEY: authkey, PYTHONUNBUFFERED: 1, http_proxy: "http://localhost:8080", https_proxy: "https://localhost:8080" };
 
 		const container = await client.createContainer({
 			Image: IMAGE_NAME,
